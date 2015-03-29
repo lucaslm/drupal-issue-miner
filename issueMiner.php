@@ -80,6 +80,7 @@ function goToWindow(WebDriver $driver, $previous_handle) {
 function parseBug(array $version_info, array &$module_erros) {
   
   global $driver; // this is the default
+  global $now;
   
   $main_container_div = $driver->findElement(
     WebDriverBy::id(
@@ -92,33 +93,37 @@ function parseBug(array $version_info, array &$module_erros) {
       )
   );
   
-  $pub_date = $main_container_div->findElement(
+  $pub_timestamp = $main_container_div->findElement(
     WebDriverBy::xpath(
       "div/div[@class='content']/div/div[@class='submitted']/time"
     )
   );
-  $pub_date = date_create_from_format('U', $pub_date->getAttribute('datetime'));
+  $pub_timestamp = intval($pub_timestamp->getAttribute('datetime'));
+
   $status = $metadata_container_div->findElement(
     WebDriverBy::xpath(
       "div/div[@class='content']/div[contains(@class,'field-name-field-issue-status')]/div/div"
     )
   );
   $status = $status->getText();
+
   $module = $metadata_container_div->findElement(
     WebDriverBy::xpath(
       "div/div[@class='content']/div[contains(@class,'field-name-field-issue-component')]/div/div"
     )
   );
   $module = $module->getText();
+
   $priority = $metadata_container_div->findElement(
     WebDriverBy::xpath(
       "div/div[@class='content']/div[contains(@class,'field-name-field-issue-priority')]/div[@class='field-items']/div"
     )
   );
   $priority = $priority->getText();
-  // Get the closure date of the bug, if it is closed. Otherwise, simply consider
-  // the closure date as today, for simplifing comparisions later.
-  $closure_date = new DateTime("now");
+
+  // Get the closure timestamp of the bug, if it is closed. Otherwise, simply
+  // consider the closure timestamp as now, for simplifing comparisions later.
+  $closure_timestamp = $now;
   if ((strpos($status, 'Closed') === 0) || (strpos($status, 'Fixed') === 0)) {
     $comments = $main_container_div->findElements(
       WebDriverBy::xpath(
@@ -132,20 +137,23 @@ function parseBug(array $version_info, array &$module_erros) {
       //  )
       //);
       //if (count($transition_comment)) {
-        $closure_date = $comment->findElement(
+        $closure_timestamp = $comment->findElement(
           WebDriverBy::xpath(
             "div[@class='submitted']/time"
           )
         );
-        $closure_date = date_create_from_format('Y-m-d\TH:i:s+T', $closure_date->getAttribute('datetime'));
+        $closure_timestamp = strtotime($closure_timestamp->getAttribute('datetime'), $now);
       //}
     }
   }
   
-  // Search the versions 
-  $affected_subVersion = array_filter($version_info, function($subVersion) use ($pub_date, $closure_date) {
-    return ($pub_date < $subVersion['date'] && $subVersion['date'] < $closure_date);
-  });
+  // Search for the versions which were released during the time the bug was opened.
+  $affected_subVersion = array_filter(
+    $version_info,
+    function($subVersion) use ($pub_timestamp, $closure_timestamp) {
+      return ($pub_timestamp < $subVersion['timestamp'] && $subVersion['timestamp'] < $closure_timestamp);
+    }
+  );
   foreach($affected_subVersion as $version_name => $specific_subVersion) {
     $module_erros[$version_name][$priority]++;
   }
@@ -153,12 +161,10 @@ function parseBug(array $version_info, array &$module_erros) {
   //echo("\t\tmodule: ".$module."\n");
   //echo("\t\tstatus: ".$status."\n");
   //echo("\t\tpriority: ".$priority."\n");
-  //echo("\t\tpub date: ".date_format($pub_date, 'Y-m-d')."\n");
-  //echo("\t\tcloseure date: ".date_format($closure_date, 'Y-m-d')."\n");
   
 }
 
-// An example of using php-webdriver.
+// Main stript which uses php-webdriver.
 
 require_once('lib/__init__.php');
 
@@ -177,7 +183,7 @@ $driver->manage()->addCookie(array(
   'value' => 'cookie_value',
 ));
 $cookies = $driver->manage()->getCookies();
-print_r($cookies);
+//print_r($cookies);
 
 $modules = array(
   //'action.module',
@@ -262,143 +268,153 @@ $modules = array(
   'field system',//field.module?
 );
 
+if (!ini_get('date.timezone')) {
+  // If there is no timezone is set, set one so date funcions don't issue warnings.
+  date_default_timezone_set('UTC');
+}
+
+$now = time();
+
 $versions_8x = array(
   '8.0-alpha12' => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-05-28 10:56:47 +0100')
+    'timestamp' => strToTime( '2014-05-28 10:56:47 +0100', $now )
   ),
   '8.0-alpha11' => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-04-23 10:10:16 +0100' )
+    'timestamp' => strToTime( '2014-04-23 10:10:16 +0100', $now )
   ),
   '8.0-alpha10' => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-03-18 10:17:33 +0000' )
+    'timestamp' => strToTime( '2014-03-18 10:17:33 +0000', $now )
   ),
   '8.0-alpha9'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-02-18 23:05:59 +0000' )
+    'timestamp' => strToTime( '2014-02-18 23:05:59 +0000', $now )
   ),
   '8.0-alpha8'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-01-22 00:50:13 -0800' )
+    'timestamp' => strToTime( '2014-01-22 00:50:13 -0800', $now )
   ),
   '8.0-alpha7'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-12-18 15:22:36 -0500' )
+    'timestamp' => strToTime( '2013-12-18 15:22:36 -0500', $now )
   ),
   '8.0-alpha6'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-11-22 13:56:50 +0000' )
+    'timestamp' => strToTime( '2013-11-22 13:56:50 +0000', $now )
   ),
   '8.0-alpha5'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-11-18 21:15:00 -0400' )
+    'timestamp' => strToTime( '2013-11-18 21:15:00 -0400', $now )
   ),
   '8.0-alpha4'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-10-18 09:54:56 +0100' )
+    'timestamp' => strToTime( '2013-10-18 09:54:56 +0100', $now )
   ),
   '8.0-alpha3'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-09-04 12:09:19 +0100' )
+    'timestamp' => strToTime( '2013-09-04 12:09:19 +0100', $now )
   ),
   '8.0-alpha2'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-06-24 11:08:43 +0100' )
+    'timestamp' => strToTime( '2013-06-24 11:08:43 +0100', $now )
   ),
   '8.0-alpha1'  => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-05-19 19:03:32 -0700' )
+    'timestamp' => strToTime( '2013-05-19 19:03:32 -0700', $now )
   ),
 );
+
+// Array with release dates of all versions 7.x, obtained by using the following command:
+// git log --tags --simplify-by-decoration --pretty="format:%ai %d"
 $versions_7x = array(
   '7.28'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-05-08 00:05:00 -0400' )
+    'timestamp' => strToTime( '2014-05-08 00:05:00 -0400', $now )
   ),
   '7.27'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-04-16 17:44:34 -0400' )
+    'timestamp' => strToTime( '2014-04-16 17:44:34 -0400', $now )
   ),
   '7.26'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-01-15 14:43:16 -0500' )
+    'timestamp' => strToTime( '2014-01-15 14:43:16 -0500', $now )
   ),
   '7.25'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2014-01-02 19:28:46 -0500' )
+    'timestamp' => strToTime( '2014-01-02 19:28:46 -0500', $now )
   ),
   '7.24'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-11-20 15:45:59 -0500' )
+    'timestamp' => strToTime( '2013-11-20 15:45:59 -0500', $now )
   ),
   '7.23'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-08-07 22:04:26 -0400' )
+    'timestamp' => strToTime( '2013-08-07 22:04:26 -0400', $now )
   ),
   '7.22'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-04-03 17:29:52 -0400' )
+    'timestamp' => strToTime( '2013-04-03 17:29:52 -0400', $now )
   ),
   '7.21'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-03-06 19:04:18 -0500' )
+    'timestamp' => strToTime( '2013-03-06 19:04:18 -0500', $now )
   ),
   '7.20'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-02-20 15:32:50 -0500' )
+    'timestamp' => strToTime( '2013-02-20 15:32:50 -0500', $now )
   ),
   '7.19'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2013-01-16 16:45:48 -0500' )
+    'timestamp' => strToTime( '2013-01-16 16:45:48 -0500', $now )
   ),
   '7.18'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-12-19 13:52:59 -0500' )
+    'timestamp' => strToTime( '2012-12-19 13:52:59 -0500', $now )
   ),
   //'origin/9.x'  => array( 
-  //  'date' => date_create_from_format('Y-m-d H:i:s T', '2012-12-04 10:50:53 -0800' )
+  //  'timestamp' => strToTime( '2012-12-04 10:50:53 -0800' )
   //),
   '7.17'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-11-07 16:42:13 -0500' )
+    'timestamp' => strToTime( '2012-11-07 16:42:13 -0500', $now )
   ),
   '7.16'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-10-17 16:45:04 -0400' )
+    'timestamp' => strToTime( '2012-10-17 16:45:04 -0400', $now )
   ),
   '7.15'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-08-01 12:27:42 -0400' )
+    'timestamp' => strToTime( '2012-08-01 12:27:42 -0400', $now )
   ),
   '7.14'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-05-02 15:10:42 -0700' )
+    'timestamp' => strToTime( '2012-05-02 15:10:42 -0700', $now )
   ),
   '7.13'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-05-02 15:01:31 -0700' )
+    'timestamp' => strToTime( '2012-05-02 15:01:31 -0700', $now )
   ),
   '7.12'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-02-01 14:03:14 -0800' )
+    'timestamp' => strToTime( '2012-02-01 14:03:14 -0800', $now )
   ),
   '7.11'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2012-02-01 13:29:51 -0800' )
+    'timestamp' => strToTime( '2012-02-01 13:29:51 -0800', $now )
   ),
   '7.10'        => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-12-05 17:18:55 -0500' )
+    'timestamp' => strToTime( '2011-12-05 17:18:55 -0500', $now )
   ),
   '7.9'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-10-26 12:53:40 -0700' )
+    'timestamp' => strToTime( '2011-10-26 12:53:40 -0700', $now )
   ),
   '7.8'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-08-31 11:40:12 -0700' )
+    'timestamp' => strToTime( '2011-08-31 11:40:12 -0700', $now )
   ),
   '7.7'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-07-27 17:02:24 -0700' )
+    'timestamp' => strToTime( '2011-07-27 17:02:24 -0700', $now )
   ),
   '7.6'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-07-27 13:19:38 -0700' )
+    'timestamp' => strToTime( '2011-07-27 13:19:38 -0700', $now )
   ),
   '7.5'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-07-27 13:17:40 -0700' )
+    'timestamp' => strToTime( '2011-07-27 13:17:40 -0700', $now )
   ),
   '7.4'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-06-29 18:20:10 -0700' )
+    'timestamp' => strToTime( '2011-06-29 18:20:10 -0700', $now )
   ),
   '7.3'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-06-29 18:12:24 -0700' )
+    'timestamp' => strToTime( '2011-06-29 18:12:24 -0700', $now )
   ),
   '7.2'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-05-25 13:41:42 -0700' )
+    'timestamp' => strToTime( '2011-05-25 13:41:42 -0700', $now )
   ),
   '7.1'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-05-25 13:07:13 -0700' )
+    'timestamp' => strToTime( '2011-05-25 13:07:13 -0700', $now )
   ),
   '7.0'         => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2011-01-05 06:17:58 +0000' )
+    'timestamp' => strToTime( '2011-01-05 06:17:58 +0000', $now )
   ),
   '7.0-rc-4'    => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2010-12-30 04:35:00 +0000' )
+    'timestamp' => strToTime( '2010-12-30 04:35:00 +0000', $now )
   ),
   '7.0-rc-3'    => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2010-12-23 10:11:33 +0000' )
+    'timestamp' => strToTime( '2010-12-23 10:11:33 +0000', $now )
   ),
   '7.0-rc-2'    => array( 
-    'date' => date_create_from_format('Y-m-d H:i:s T', '2010-12-11 20:59:12 +0000' )
+    'timestamp' => strToTime( '2010-12-11 20:59:12 +0000', $now )
   ),
 );
 
@@ -471,7 +487,7 @@ foreach($modules as $module) {
         WebDriverBy::xpath("//div[@class='view-content']/table[2]/tbody/tr/td[contains(@class,'views-field-title')]/a")
     );
     if (count($bug_links)) {
-      echo("Should process ".count($bug_links)." bugs\n");
+      echo("Should process ".count($bug_links)." bugs from ".$module."\n");
       foreach($bug_links as $bug_link) {
         echo("\tParsing bug ".$bug_link->getAttribute('href')."\n");
         if (($previous_handle = openInNewWindow($driver, $bug_link)) !== false) {
@@ -491,7 +507,7 @@ foreach($modules as $module) {
   } while (count($next_page_link));
   
   // We print into the file a module each time so if an exception occurs 
-  // in the middle ofthe execution, the previous computation is stored.
+  // in the middle of the execution, the previous computation is stored.
   print_results($module, $module_errors);
 
 }
@@ -499,8 +515,8 @@ foreach($modules as $module) {
 /**
  * Append the computed amount of erros found for a module into a file.
  * @param string  $module
- * @param array  $module_errors
- * @param string $filename
+ * @param array   $module_errors
+ * @param string  $filename
  */
 function print_results($module, array $module_errors, $filename = 'results.csv') {
   $output = format_results($module, $module_errors);
