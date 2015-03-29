@@ -164,6 +164,54 @@ function parseBug(array $version_info, array &$module_erros) {
   
 }
 
+/**
+ * Append the computed amount of erros found for a module into a file.
+ * @param string  $module
+ * @param array   $module_errors
+ * @param string  $filename
+ */
+function print_results($module, array $module_errors, $filename = 'results.csv') {
+  $output = format_results($module, $module_errors);
+  
+  // Write the results.
+  print_string($output, $filename);
+}
+
+/**
+ * Turn the errors results of a given module into a string for printing.
+ * 
+ * @param string $module
+ * @param array $module_errors
+ * @return string
+ */
+function format_results($module, array $module_errors) {
+  $output  = '';
+  $output .= $module.";";
+  $module_errors = array_map(
+    function($module_priority_errors) {
+      return implode(";", $module_priority_errors);
+    },
+    $module_errors
+  );
+  $output .= implode(";", $module_errors);
+  $output .= "\n";
+  return $output;
+}
+
+function print_string($output, $filename = 'results.csv') {
+  if (!($file = fopen($filename, 'a'))) {
+    echo "Could not open ".$filename." for writing!\n";
+    print_r($output);
+  }
+  else {
+    if (!(fwrite($file, $output))) {
+      echo "Could not write into ".$filename."\n";
+      print_r($output);
+    }
+  }
+  fclose($file);
+}
+
 // Main stript which uses php-webdriver.
 
 require_once('lib/__init__.php');
@@ -510,54 +558,6 @@ foreach($modules as $module) {
   // in the middle of the execution, the previous computation is stored.
   print_results($module, $module_errors);
 
-}
-
-/**
- * Append the computed amount of erros found for a module into a file.
- * @param string  $module
- * @param array   $module_errors
- * @param string  $filename
- */
-function print_results($module, array $module_errors, $filename = 'results.csv') {
-  $output = format_results($module, $module_errors);
-  
-  // Write the results.
-  print_string($output, $filename);
-}
-
-/**
- * Turn the errors results of a given module into a string for printing.
- * 
- * @param string $module
- * @param array $module_errors
- * @return string
- */
-function format_results($module, array $module_errors) {
-  $output  = '';
-  $output .= $module.";";
-  $module_errors = array_map(
-    function($module_priority_errors) {
-      return implode(";", $module_priority_errors);
-    },
-    $module_errors
-  );
-  $output .= implode(";", $module_errors);
-  $output .= "\n";
-  return $output;
-}
-
-function print_string($output, $filename = 'results.csv') {
-  if (!($file = fopen($filename, 'a'))) {
-    echo "Could not open ".$filename." for writing!\n";
-    print_r($output);
-  }
-  else {
-    if (!(fwrite($file, $output))) {
-      echo "Could not write into ".$filename."\n";
-      print_r($output);
-    }
-  }
-  fclose($file);
 }
 
 // close the Firefox
