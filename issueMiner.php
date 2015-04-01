@@ -81,18 +81,28 @@ function parseBug(array $version_info, array &$module_erros) {
   
   global $driver; // this is the default
   global $now;
-  
-  $main_container_div = $driver->findElement(
-    WebDriverBy::id(
-      "block-system-main"
+
+  static $wait = null;
+  if (!$wait) {
+    $wait = new WebDriverWait($driver);
+  }
+
+  $main_container_div = $wait->until(
+    WebDriverExpectedCondition::presenceOfElementLocated(
+      WebDriverBy::id(
+        "block-system-main"
+      )
     )
   );
-  $metadata_container_div = $driver->findElement(
+
+  $metadata_container_div = $wait->until(
+    WebDriverExpectedCondition::presenceOfElementLocated(
       WebDriverBy::id(
         "block-project-issue-issue-metadata"
       )
+    )
   );
-  
+
   $pub_timestamp = $main_container_div->findElement(
     WebDriverBy::xpath(
       "div/div[@class='content']/div/div[@class='submitted']/time"
