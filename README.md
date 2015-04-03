@@ -1,9 +1,9 @@
-drupal-issues-mining
+drupal-issue-miner
 ====================
 
 ##  Description
 
-A selenium driven php script to collect informations from the [drupal issue tracking website](https://www.drupal.org/project/issues/search/drupal). it uses 
+A selenium driven php script to collect informations from the [drupal issue tracking website](https://www.drupal.org/project/issues/search/drupal). it uses [facebook's webdriver bind](https://github.com/facebook/php-webdriver).
 
 ##  Usage
 
@@ -11,7 +11,7 @@ To use it, follow the steps bellow:
 
 * Clone the repository
 
-        git clone git@github.com:lucaslm/drupal-issues-mining.git
+        git clone https://github.com/lucaslm/drupal-issue-miner.git
 
 * Download the composer.phar
 
