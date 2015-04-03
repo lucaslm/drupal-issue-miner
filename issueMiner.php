@@ -1,4 +1,7 @@
+#!/usr/bin/php
 <?php
+
+require_once('vendor/facebook/webdriver/lib/__init__.php');
 
 function waitForNextPage($pWDSession) {
   $aWait = new PHPWebDriver_WebDriverWait($pWDSession);
@@ -157,7 +160,7 @@ function parseBug(array $version_info, array &$module_erros) {
     }
   }
   
-  // Search for the versions which were released during the time the bug was opened.
+  // Search for the versions which were released during the time the bug was open.
   $affected_subVersion = array_filter(
     $version_info,
     function($subVersion) use ($pub_timestamp, $closure_timestamp) {
@@ -224,24 +227,14 @@ function print_string($output, $filename = 'results.csv') {
 
 // Main stript which uses php-webdriver.
 
-require_once('vendor/facebook/webdriver/lib/__init__.php');
+$options = getopt('h');
 
-// start Firefox with 5 second timeout
-$host = 'http://localhost:4444/wd/hub'; // this is the default
-$capabilities = DesiredCapabilities::firefox();
-$driver = RemoteWebDriver::create($host, $capabilities, 10000);
-
-// navigate to 'https://www.drupal.org/project/issues/search/drupal'
-$driver->get('https://www.drupal.org/project/issues/search/drupal');
-
-// adding cookie
-$driver->manage()->deleteAllCookies();
-$driver->manage()->addCookie(array(
-  'name' => 'cookie_name',
-  'value' => 'cookie_value',
-));
-$cookies = $driver->manage()->getCookies();
-//print_r($cookies);
+if (isset($options['h'])) {
+    echo ("Usage: php [-f] issueMiner.php [options]\n");
+    echo ("  -h    This help\n");
+    echo ("\n");
+    exit;
+}
 
 $modules = array(
   //'action.module',
@@ -327,7 +320,7 @@ $modules = array(
 );
 
 if (!ini_get('date.timezone')) {
-  // If there is no timezone is set, set one so date funcions don't issue warnings.
+  // If there is no timezone is set, set one so date functions don't issue warnings.
   date_default_timezone_set('UTC');
 }
 
@@ -475,6 +468,22 @@ $versions_7x = array(
     'timestamp' => strToTime( '2010-12-11 20:59:12 +0000', $now )
   ),
 );
+
+// start Firefox with 5 second timeout
+$host = 'http://localhost:4444/wd/hub'; // this is the default
+$capabilities = DesiredCapabilities::firefox();
+$driver = RemoteWebDriver::create($host, $capabilities, 10000);
+
+// navigate to 'https://www.drupal.org/project/issues/search/drupal'
+$driver->get('https://www.drupal.org/project/issues/search/drupal');
+
+// adding cookie
+$driver->manage()->deleteAllCookies();
+$driver->manage()->addCookie(array(
+  'name' => 'cookie_name',
+  'value' => 'cookie_value',
+));
+$cookies = $driver->manage()->getCookies();
 
 $header  = ';'.implode(';;;;', array_keys($versions_7x))."\n";
 $header .= ';'.implode(';', array_fill(0, count($versions_7x), 'Critical;Major;Normal;Minor'))."\n";
