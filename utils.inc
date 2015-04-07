@@ -12,36 +12,49 @@ function compareVersions($version1, $version2) {
     if ($version1[$i] != $version2[$i]) {
       if ($version1[$i] == "x") {
 
-        // version1 is either 7.x or 7.x-dev
+        // version1 is like either 7.x or 7.x-dev
         if ($i == count($version1)-1) {
 
-          // 7.x is the entire branch and contains any other version from it.
+          // version1 is a entire branch (e.g. 7.x) and
+          // contains any other version from the same branch.
           return 0;
         } else {
 
-          // 7.x-dev is the branch's head
-          if ($version2[$i] == "x") {
+          // version1 is a branch's head (e.g. 7.x-dev)
+          /*if ($version2[$i] == "x") {
 
-            // version2 is either 7.x or 7.x-dev
+            // version2 is like either 7.x or 7.x-dev
+            // Therefore version1 contains version2 (either
+            // properly or not)
             return 0;
-          } else {
+          } else*/ {
 
-            // version2 is a specific version (e.g., 7.15, 7.0-beta1).
+            // version2 is a specific version (e.g. 7.15, 7.0-beta1).
             // Therefore it is less than the branch's head (version1).
             return 1;
           }
         }
       } else {
 
-        // version1 is a specific version (e.g., 7.15, 7.0-beta1).
+        // version1 is a specific version (e.g. 7.15, 7.0-beta1).
         if ($version2[$i] == "x") {
 
-          // version2 is either 7.x or 7.x-dev
-          return -1;
+          // version2 is like either 7.x or 7.x-dev
+          if ($i == count($version1)-1) {
+
+            // version2 is a entire branch (e.g. 7.x) and 
+            // contains any other version from the same branch.
+            return 0;
+          } else {
+
+            // version2 is a branch's head (e.g. 7.x-dev) and
+            // is greater than any specific version from this branch
+            return -1;
+          }
         } else {
 
           // version2 is a specific version (e.g., 7.15, 7.0-beta1).
-          return strcmp($version1[$i], $version2[$i]);
+          return ($version1[$i] < $version2[$i]) ? -1 : 1;
         }
 
       }

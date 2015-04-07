@@ -86,14 +86,6 @@ $versions = array(
       'name'      => '4.6.1',
       'timestamp' => 1117663993,
     ),
-    '4.6.10' => array(
-      'name'      => '4.6.10',
-      'timestamp' => 1161204172,
-    ),
-    '4.6.11' => array(
-      'name'      => '4.6.11',
-      'timestamp' => 1167958043,
-    ),
     '4.6.2' => array(
       'name'      => '4.6.2',
       'timestamp' => 1120091000,
@@ -126,13 +118,17 @@ $versions = array(
       'name'      => '4.6.9',
       'timestamp' => 1154543063,
     ),
+    '4.6.10' => array(
+      'name'      => '4.6.10',
+      'timestamp' => 1161204172,
+    ),
+    '4.6.11' => array(
+      'name'      => '4.6.11',
+      'timestamp' => 1167958043,
+    ),
     '4.6.x-dev' => array(
       'name'      => '4.6.x-dev',
       'timestamp' => 1428293071,
-    ),
-    '4.7.0' => array(
-      'name'      => '4.7.0',
-      'timestamp' => 1146477046,
     ),
     '4.7.0-beta3' => array(
       'name'      => '4.7.0-beta3',
@@ -162,6 +158,10 @@ $versions = array(
       'name'      => '4.7.0-rc3',
       'timestamp' => 1145075079,
     ),
+    '4.7.0' => array(
+      'name'      => '4.7.0',
+      'timestamp' => 1146477046,
+    ),
     '4.7.0-rc4' => array(
       'name'      => '4.7.0-rc4',
       'timestamp' => 1146232878,
@@ -169,14 +169,6 @@ $versions = array(
     '4.7.1' => array(
       'name'      => '4.7.1',
       'timestamp' => 1148521146,
-    ),
-    '4.7.10' => array(
-      'name'      => '4.7.10',
-      'timestamp' => 1196972986,
-    ),
-    '4.7.11' => array(
-      'name'      => '4.7.11',
-      'timestamp' => 1200003924,
     ),
     '4.7.2' => array(
       'name'      => '4.7.2',
@@ -210,19 +202,27 @@ $versions = array(
       'name'      => '4.7.9',
       'timestamp' => 1196889351,
     ),
+    '4.7.10' => array(
+      'name'      => '4.7.10',
+      'timestamp' => 1196972986,
+    ),
+    '4.7.11' => array(
+      'name'      => '4.7.11',
+      'timestamp' => 1200003924,
+    ),
     '4.7.x-dev' => array(
       'name'      => '4.7.x-dev',
       'timestamp' => 1428293071,
     ),
   ),
   '5.x' => array(
-    '5.0' => array(
-      'name'      => '5.0',
-      'timestamp' => 1168863377,
-    ),
     '5.0-beta1' => array(
       'name'      => '5.0-beta1',
       'timestamp' => 1162307974,
+    ),
+    '5.0' => array(
+      'name'      => '5.0',
+      'timestamp' => 1168863377,
     ),
     '5.0-beta2' => array(
       'name'      => '5.0-beta2',
@@ -239,6 +239,38 @@ $versions = array(
     '5.1' => array(
       'name'      => '5.1',
       'timestamp' => 1170116375,
+    ),
+    '5.2' => array(
+      'name'      => '5.2',
+      'timestamp' => 1185477847,
+    ),
+    '5.3' => array(
+      'name'      => '5.3',
+      'timestamp' => 1192656827,
+    ),
+    '5.4' => array(
+      'name'      => '5.4',
+      'timestamp' => 1196889555,
+    ),
+    '5.5' => array(
+      'name'      => '5.5',
+      'timestamp' => 1196972817,
+    ),
+    '5.6' => array(
+      'name'      => '5.6',
+      'timestamp' => 1200003563,
+    ),
+    '5.7' => array(
+      'name'      => '5.7',
+      'timestamp' => 1201565148,
+    ),
+    '5.8' => array(
+      'name'      => '5.8',
+      'timestamp' => 1215640562,
+    ),
+    '5.9' => array(
+      'name'      => '5.9',
+      'timestamp' => 1216843154,
     ),
     '5.10' => array(
       'name'      => '5.10',
@@ -280,10 +312,6 @@ $versions = array(
       'name'      => '5.19',
       'timestamp' => 1246481811,
     ),
-    '5.2' => array(
-      'name'      => '5.2',
-      'timestamp' => 1185477847,
-    ),
     '5.20' => array(
       'name'      => '5.20',
       'timestamp' => 1253129998,
@@ -299,34 +327,6 @@ $versions = array(
     '5.23' => array(
       'name'      => '5.23',
       'timestamp' => 1281559317,
-    ),
-    '5.3' => array(
-      'name'      => '5.3',
-      'timestamp' => 1192656827,
-    ),
-    '5.4' => array(
-      'name'      => '5.4',
-      'timestamp' => 1196889555,
-    ),
-    '5.5' => array(
-      'name'      => '5.5',
-      'timestamp' => 1196972817,
-    ),
-    '5.6' => array(
-      'name'      => '5.6',
-      'timestamp' => 1200003563,
-    ),
-    '5.7' => array(
-      'name'      => '5.7',
-      'timestamp' => 1201565148,
-    ),
-    '5.8' => array(
-      'name'      => '5.8',
-      'timestamp' => 1215640562,
-    ),
-    '5.9' => array(
-      'name'      => '5.9',
-      'timestamp' => 1216843154,
     ),
     '5.x-dev' => array(
       'name'      => '5.x-dev',
@@ -374,6 +374,38 @@ $versions = array(
       'name'      => '6.1',
       'timestamp' => 1204141889,
     ),
+    '6.2' => array(
+      'name'      => '6.2',
+      'timestamp' => 1207775758,
+    ),
+    '6.3' => array(
+      'name'      => '6.3',
+      'timestamp' => 1215640418,
+    ),
+    '6.4' => array(
+      'name'      => '6.4',
+      'timestamp' => 1218672351,
+    ),
+    '6.5' => array(
+      'name'      => '6.5',
+      'timestamp' => 1223496904,
+    ),
+    '6.6' => array(
+      'name'      => '6.6',
+      'timestamp' => 1224703633,
+    ),
+    '6.7' => array(
+      'name'      => '6.7',
+      'timestamp' => 1228948281,
+    ),
+    '6.8' => array(
+      'name'      => '6.8',
+      'timestamp' => 1229018152,
+    ),
+    '6.9' => array(
+      'name'      => '6.9',
+      'timestamp' => 1231976120,
+    ),
     '6.10' => array(
       'name'      => '6.10',
       'timestamp' => 1235595930,
@@ -413,10 +445,6 @@ $versions = array(
     '6.19' => array(
       'name'      => '6.19',
       'timestamp' => 1281559192,
-    ),
-    '6.2' => array(
-      'name'      => '6.2',
-      'timestamp' => 1207775758,
     ),
     '6.20' => array(
       'name'      => '6.20',
@@ -458,10 +486,6 @@ $versions = array(
       'name'      => '6.29',
       'timestamp' => 1384980939,
     ),
-    '6.3' => array(
-      'name'      => '6.3',
-      'timestamp' => 1215640418,
-    ),
     '6.30' => array(
       'name'      => '6.30',
       'timestamp' => 1389814918,
@@ -486,43 +510,19 @@ $versions = array(
       'name'      => '6.35',
       'timestamp' => 1426706752,
     ),
-    '6.4' => array(
-      'name'      => '6.4',
-      'timestamp' => 1218672351,
-    ),
-    '6.5' => array(
-      'name'      => '6.5',
-      'timestamp' => 1223496904,
-    ),
-    '6.6' => array(
-      'name'      => '6.6',
-      'timestamp' => 1224703633,
-    ),
-    '6.7' => array(
-      'name'      => '6.7',
-      'timestamp' => 1228948281,
-    ),
-    '6.8' => array(
-      'name'      => '6.8',
-      'timestamp' => 1229018152,
-    ),
-    '6.9' => array(
-      'name'      => '6.9',
-      'timestamp' => 1231976120,
-    ),
     '6.x-dev' => array(
       'name'      => '6.x-dev',
       'timestamp' => 1428293071,
     ),
   ),
   '7.x' => array(
-    '7.0' => array(
-      'name'      => '7.0',
-      'timestamp' => 1294208481,
-    ),
     '7.0-alpha1' => array(
       'name'      => '7.0-alpha1',
       'timestamp' => 1263566471,
+    ),
+    '7.0' => array(
+      'name'      => '7.0',
+      'timestamp' => 1294208481,
     ),
     '7.0-alpha2' => array(
       'name'      => '7.0-alpha2',
@@ -580,6 +580,38 @@ $versions = array(
       'name'      => '7.1',
       'timestamp' => 1306354716,
     ),
+    '7.2' => array(
+      'name'      => '7.2',
+      'timestamp' => 1306356773,
+    ),
+    '7.3' => array(
+      'name'      => '7.3',
+      'timestamp' => 1309397130,
+    ),
+    '7.4' => array(
+      'name'      => '7.4',
+      'timestamp' => 1309397448,
+    ),
+    '7.5' => array(
+      'name'      => '7.5',
+      'timestamp' => 1311798258,
+    ),
+    '7.6' => array(
+      'name'      => '7.6',
+      'timestamp' => 1311798575,
+    ),
+    '7.7' => array(
+      'name'      => '7.7',
+      'timestamp' => 1311813047,
+    ),
+    '7.8' => array(
+      'name'      => '7.8',
+      'timestamp' => 1314817475,
+    ),
+    '7.9' => array(
+      'name'      => '7.9',
+      'timestamp' => 1319660445,
+    ),
     '7.10' => array(
       'name'      => '7.10',
       'timestamp' => 1323125284,
@@ -624,10 +656,6 @@ $versions = array(
       'name'      => '7.20',
       'timestamp' => 1361393536,
     ),
-    '7.2' => array(
-      'name'      => '7.2',
-      'timestamp' => 1306356773,
-    ),
     '7.21' => array(
       'name'      => '7.21',
       'timestamp' => 1362615560,
@@ -664,10 +692,6 @@ $versions = array(
       'name'      => '7.29',
       'timestamp' => 1405542918,
     ),
-    '7.3' => array(
-      'name'      => '7.3',
-      'timestamp' => 1309397130,
-    ),
     '7.30' => array(
       'name'      => '7.30',
       'timestamp' => 1406239615,
@@ -696,36 +720,48 @@ $versions = array(
       'name'      => '7.36',
       'timestamp' => 1427943278,
     ),
-    '7.4' => array(
-      'name'      => '7.4',
-      'timestamp' => 1309397448,
-    ),
-    '7.5' => array(
-      'name'      => '7.5',
-      'timestamp' => 1311798258,
-    ),
-    '7.6' => array(
-      'name'      => '7.6',
-      'timestamp' => 1311798575,
-    ),
-    '7.7' => array(
-      'name'      => '7.7',
-      'timestamp' => 1311813047,
-    ),
-    '7.8' => array(
-      'name'      => '7.8',
-      'timestamp' => 1314817475,
-    ),
-    '7.9' => array(
-      'name'      => '7.9',
-      'timestamp' => 1319660445,
-    ),
     '7.x-dev' => array(
       'name'      => '7.x-dev',
       'timestamp' => 1428293071,
     ),
   ),
   '8.x' => array(
+    '8.0.0-alpha14' => array(
+      'name'      => '8.0.0-alpha14',
+      'timestamp' => 1407344603,
+    ),
+    '8.0.0-alpha15' => array(
+      'name'      => '8.0.0-alpha15',
+      'timestamp' => 1411139455,
+    ),
+    '8.0.0-beta1' => array(
+      'name'      => '8.0.0-beta1',
+      'timestamp' => 1412147001,
+    ),
+    '8.0.0-beta2' => array(
+      'name'      => '8.0.0-beta2',
+      'timestamp' => 1413392637,
+    ),
+    '8.0.0-beta3' => array(
+      'name'      => '8.0.0-beta3',
+      'timestamp' => 1415797276,
+    ),
+    '8.0.0-beta4' => array(
+      'name'      => '8.0.0-beta4',
+      'timestamp' => 1418825225,
+    ),
+    '8.0.0-beta6' => array(
+      'name'      => '8.0.0-beta6',
+      'timestamp' => 1422443458,
+    ),
+    '8.0.0-beta7' => array(
+      'name'      => '8.0.0-beta7',
+      'timestamp' => 1424875103,
+    ),
+    '8.0.0-beta9' => array(
+      'name'      => '8.0.0-beta9',
+      'timestamp' => 1427300136,
+    ),
     '8.0-alpha10' => array(
       'name'      => '8.0-alpha10',
       'timestamp' => 1395231484,
@@ -774,42 +810,6 @@ $versions = array(
       'name'      => '8.0-alpha9',
       'timestamp' => 1392805782,
     ),
-    '8.0.0-alpha14' => array(
-      'name'      => '8.0.0-alpha14',
-      'timestamp' => 1407344603,
-    ),
-    '8.0.0-alpha15' => array(
-      'name'      => '8.0.0-alpha15',
-      'timestamp' => 1411139455,
-    ),
-    '8.0.0-beta1' => array(
-      'name'      => '8.0.0-beta1',
-      'timestamp' => 1412147001,
-    ),
-    '8.0.0-beta2' => array(
-      'name'      => '8.0.0-beta2',
-      'timestamp' => 1413392637,
-    ),
-    '8.0.0-beta3' => array(
-      'name'      => '8.0.0-beta3',
-      'timestamp' => 1415797276,
-    ),
-    '8.0.0-beta4' => array(
-      'name'      => '8.0.0-beta4',
-      'timestamp' => 1418825225,
-    ),
-    '8.0.0-beta6' => array(
-      'name'      => '8.0.0-beta6',
-      'timestamp' => 1422443458,
-    ),
-    '8.0.0-beta7' => array(
-      'name'      => '8.0.0-beta7',
-      'timestamp' => 1424875103,
-    ),
-    '8.0.0-beta9' => array(
-      'name'      => '8.0.0-beta9',
-      'timestamp' => 1427300136,
-    ),
     '8.0.x-dev' => array(
       'name'      => '8.0.x-dev',
       'timestamp' => 1428293071,
@@ -818,7 +818,7 @@ $versions = array(
       'name'      => '8.1.x-dev',
       'timestamp' => 1428293071,
     ),
-  ),
+  ),s
   '9.x' => array(
     '9.x-dev' => array(
       'name'      => '9.x-dev',

@@ -226,7 +226,10 @@ $wait = new WebDriverWait($driver);
 $now      = time();
 $versions = findVersions($options['minVersion'], $options['maxVersion']);
 
-//foreach ($versions as &$version) ksort($version); ksort($versions);
+foreach ($versions as &$version) {
+  uksort($version, "compareVersions");
+}
+ksort($versions);
 //echo var_export($versions, true);
 
 $versions_7x = $versions['7.x'];
