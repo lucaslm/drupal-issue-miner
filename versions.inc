@@ -818,7 +818,7 @@ $versions = array(
       'name'      => '8.1.x-dev',
       'timestamp' => 1428293071,
     ),
-  ),s
+  ),
   '9.x' => array(
     '9.x-dev' => array(
       'name'      => '9.x-dev',
