@@ -4,64 +4,87 @@
  * Compares two versions
  */
 function compareVersions($version1, $version2) {
-  $version1 = preg_split("/\.|-/", $version1);
-  $version2 = preg_split("/\.|-/", $version2);
+
+  // Array to store the order of pre-regular-releases versions.
+  $preReleases = array_flip(array(
+    "x-dev", "unstable", "alpha", "beta", "rc"
+  ));
+  // All values in preReleases must be negative so they come before regular releases.
+  $count = count($preReleases);
+  foreach ($preReleases as &$preRelease) {
+    $preRelease -= $count;
+  }
+
+  $patterns     = array("/0+-unstable(-)?(\d+)$/", "/0+-alpha(-)?(\d+)$/", "/0+-beta(-)?(\d+)$/", "/0+-rc(-)?(\d+)$/");
+  $replacements = array("unstable.$2",             "alpha.$2",             "beta.$2",             "rc.$2");
+
+  $version1 = preg_replace($patterns, $replacements, $version1);
+  $version2 = preg_replace($patterns, $replacements, $version2);
+
+  $version1 = explode(".", $version1);
+  $version2 = explode(".", $version2);
+
   $count    = min(count($version1), count($version2));
 
   for ($i = 0; $i < $count; $i++) {
     if ($version1[$i] != $version2[$i]) {
-      if ($version1[$i] == "x") {
+      if ($version1[$i] == "x" || $version2[$i] == "x") {
 
-        // version1 is like either 7.x or 7.x-dev
-        if ($i == count($version1)-1) {
-
-          // version1 is a entire branch (e.g. 7.x) and
-          // contains any other version from the same branch.
+          // Some of the versions is a entire branch (e.g. 7.x)
+          // and contains any other version from the same branch.
           return 0;
-        } else {
-
-          // version1 is a branch's head (e.g. 7.x-dev)
-          /*if ($version2[$i] == "x") {
-
-            // version2 is like either 7.x or 7.x-dev
-            // Therefore version1 contains version2 (either
-            // properly or not)
-            return 0;
-          } else*/ {
-
-            // version2 is a specific version (e.g. 7.15, 7.0-beta1).
-            // Therefore it is less than the branch's head (version1).
-            return 1;
-          }
-        }
       } else {
-
-        // version1 is a specific version (e.g. 7.15, 7.0-beta1).
-        if ($version2[$i] == "x") {
-
-          // version2 is like either 7.x or 7.x-dev
-          if ($i == count($version1)-1) {
-
-            // version2 is a entire branch (e.g. 7.x) and 
-            // contains any other version from the same branch.
-            return 0;
-          } else {
-
-            // version2 is a branch's head (e.g. 7.x-dev) and
-            // is greater than any specific version from this branch
-            return -1;
-          }
-        } else {
-
-          // version2 is a specific version (e.g., 7.15, 7.0-beta1).
-          return ($version1[$i] < $version2[$i]) ? -1 : 1;
-        }
-
+          $subVersion1 = is_numeric($version1[$i])?$version1[$i]:$preReleases[$version1[$i]];
+          $subVersion2 = is_numeric($version2[$i])?$version2[$i]:$preReleases[$version2[$i]];
+          return ($subVersion1 < $subVersion2) ? -1 : 1;
       }
     }
   }
 
   return 0;
+}
+
+function parseCurlHeaders(&$headers) {
+  $headers = explode("\n", $headers);
+  list($version, $status) = explode(" ", $headers[0], 2);
+  $parsedHeaders = array(
+    'status'  => $status,
+    'version' => $version,
+  );
+  unset($headers[0]);
+  foreach ($headers as $header) {
+    list($field, $value) = explode(":", $header, 2);
+    $parsedHeaders[$field] = $value;
+  }
+  return $headers = $parsedHeaders;
+}
+
+function makeGitHubApiRequest($cURLhandle, $url,
+                              $username = false, $password = "", $timeout = 3600) {
+  curl_setopt($cURLhandle, CURLOPT_URL, $url); 
+  curl_setopt($cURLhandle, CURLOPT_HEADER, 1);
+  curl_setopt($cURLhandle, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($cURLhandle, CURLOPT_USERAGENT, "curl");
+
+  if ($username) {
+    curl_setopt($cURLhandle, CURLOPT_USERPWD, "$username:$password");
+    curl_setopt($cURLhandle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+  }
+
+  $response = curl_exec($cURLhandle);
+  list($headers, $content) = explode("\r\n\r\n", $response, 2);
+  parseCurlHeaders($headers);
+
+  if ($headers['status'] == 403 && $headers['X-RateLimit-Remaining'] < 0) {
+    // Wait as much as it takes to get the request serviced.
+    $waitTime = $headers['X-RateLimit-Reset'] - time();
+    if ($waitTime <= $timeout) {
+      sleep($waitTime);
+      $response = curl_exec($cURLhandle);
+    }
+  }
+
+  return $response;
 }
 
 /**
@@ -120,20 +143,25 @@ function goToWindow(WebDriver $driver, $previous_handle) {
 function validateArguments(&$options) {
 
   if (isset($options['h']) || isset($options['help'])) {
-      echo ("Usage: php [-f] issueMiner.php [options]\n");
-      echo ("  --minVersion  Since which version start collecting statistics.\n");
-      echo ("                Must not be greater than MaxVersion, if there is any.\n");
-      echo ("  --maxVersion  Up to which version continue collecting statistics.\n");
-      echo ("                Must not be less than MinVersion, if there is any.\n");
-      echo ("  -h, --help    This help,\n");
-      echo ("\n");
+      echo("Usage: php [-f] issueMiner.php [options]\n");
+      echo("  --minVersion      Since which version start collecting statistics.\n");
+      echo("                    Must not be greater than MaxVersion, if there is any.\n");
+      echo("  --maxVersion      Up to which version continue collecting statistics.\n");
+      echo("                    Must not be less than MinVersion, if there is any.\n");
+      echo("  --githubUser, --githubPass\n");
+      echo("                    To fetch Drupal's versions, this script makes use of github's API.\n");
+      echo("                    Autenticated requests receive a greater rate limit.\n");
+      echo("  -h, --help        This help,\n");
+      echo("\n");
       exit;
   }
 
+  $validVersionRegexp = "/^\d((\.)?\d+)*(\.(0+-alpha(-)?\d+|0+-beta(-)?\d+|0+-rc(-)?\d+|x))?$/";
+
   if (isset($options['minVersion'])) {
-      if (!preg_match("/^\d((\.)?\d+)*(\.(-alpha\d+|-beta\d+|-rc\d+|x))?$/", $options['minVersion'])) {
-        echo ("Invalid version ".$options['minVersion']."\n");
-        echo ("\n");
+      if (!preg_match($validVersionRegexp, $options['minVersion'])) {
+        echo("Invalid version ".$options['minVersion']."\n");
+        echo("\n");
         exit;
       }
   } else {
@@ -141,9 +169,9 @@ function validateArguments(&$options) {
   }
 
   if (isset($options['maxVersion'])) {
-      if (!preg_match("/^\d((\.)?\d+)*(\.(-alpha\d+|-beta\d+|-rc\d+|x))?$/", $options['maxVersion'])) {
-        echo ("Invalid version ".$options['minVersion']."\n");
-        echo ("\n");
+      if (!preg_match($validVersionRegexp, $options['maxVersion'])) {
+        echo("Invalid version ".$options['minVersion']."\n");
+        echo("\n");
         exit;
       }
   } else {
@@ -152,9 +180,49 @@ function validateArguments(&$options) {
 
   if ($options['minVersion'] && $options['maxVersion'] && 
       $options['minVersion'] > $options['maxVersion']) {
-      echo ($options['minVersion']." is greater than ".$options['maxVersion']."\n");
-      echo ("\n");
+      echo($options['minVersion']." is greater than ".$options['maxVersion']."\n");
+      echo("\n");
       exit; 
+  }
+
+  if (isset($options['githubUser']) && isset($options['githubPass'])) {
+    $password = "";
+    // Check if passwrod was provided.
+    if (isset($_SERVER['argv'])) {
+      foreach ($_SERVER['argv'] as $i => $arg) {
+        if ($arg == "--githubPass") {
+          break;
+        }
+      }
+      if (isset($_SERVER['argv'][$i+1])) {
+
+        $nextArgument = $_SERVER['argv'][$i+1];
+        $password     = $nextArgument;
+
+        if (preg_match("/^-(-)?/", $nextArgument)) {
+          $nextArgument = preg_replace("/^-(-)?/", '', $nextArgument);
+          if (isset($options[$nextArgument])) {
+            // $nextArgument is actually another option, not a password
+            $password = "";
+          }
+        }
+      }
+    }
+    // If no password was provided, ask the user.
+    if (!$password) {
+      // Hide characters when typing password.
+      system("stty -echo");
+      echo("Please, type password: ");
+      // Get rid of newline when reading stdin.
+      $password = substr(fgets(STDIN), 0, -1);
+      system("stty echo");
+      echo("\n");
+    }
+    $options['githubPass'] = $password;
+  }
+
+  if (!isset($options['githubUser'])) {
+    $options['githubUser'] = false;
   }
 
 }

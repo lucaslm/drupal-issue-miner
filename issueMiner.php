@@ -11,102 +11,80 @@ require_once('vendor/facebook/webdriver/lib/__init__.php');
  * 
  * @param string $minVersion
  * @param string $maxVersion
+ * @param mixed  $username
+ * @param string $password
  * @return array The array with each version. Each element is a major release,
  *               in which each element in turn is a minor release. The key is
  *               always the versions's name.
  */
-function findVersions($minVersion = false, $maxVersion = false) {
+function findVersions($minVersion = false, $maxVersion = false, $username = false, $password = '') {
 
-  global $driver;
   global $now;
-  global $wait;
-
   $versions = array();
 
-  $driver->get('https://www.drupal.org/node/3060/release');
+  $ch = curl_init();
+  $response = makeGitHubApiRequest($ch,
+                                   'https://api.github.com/repos/drupal/drupal/git/refs/tags',
+                                   $username,
+                                   $password);
 
-  // Select versions.
-  $versionElement = $wait->until(
-    WebDriverExpectedCondition::presenceOfElementLocated(
-      WebDriverBy::id('edit-api-version')
-    )
-  );
-  $versionSelect = new WebDriverSelect($versionElement);
-  $versionOptions = $versionSelect->getOptions();
-  foreach ($versionOptions as $versionOption) {
-    $versionNumber = $versionOption->getText();
-    if ((!$minVersion || compareVersions($minVersion, $versionNumber) <= 0) && 
-        (!$maxVersion || compareVersions($versionNumber, $maxVersion) <= 0)) {
-      $versionSelect->selectByValue($versionOption->getAttribute('value'));
-    }
-  }
+  if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == 200) {
+    list($headers, $content) = explode("\r\n\r\n", $response, 2);
 
-  // Submit the form
-  $submitElement = $driver->findElement(
-      WebDriverBy::id('edit-submit-project-release-by-project')
-  );
-  $submitElement->submit();
+    $tags = json_decode($content);
 
-  do {
+    foreach ($tags as $tag) {
 
-    $containerDiv = $wait->until(
-      WebDriverExpectedCondition::presenceOfElementLocated(
-        WebDriverBy::xpath(
-          "//div[@id='block-system-main']/div[@class='block-inner']/div[@class='content']"
-        )
-      )
-    );
+      $versionName = str_replace('refs/tags/', '', $tag->ref);
+      if ((!$minVersion || compareVersions($minVersion, $versionName) <= 0) && 
+          (!$maxVersion || compareVersions($versionName, $maxVersion) <= 0)) {
 
-    $releases = $containerDiv->findElements(
-      WebDriverBy::xpath(
-        "div/div[@class='view-content']/div/div[contains(@class,'node-project-release')]"
-      )
-    );
+        $majorVersion = substr($versionName, 0, strpos($versionName, '.')).".x";
 
-    echo("Found ".count($releases)." versions.\n");
+        $response = makeGitHubApiRequest($ch,
+                                         $tag->object->url,
+                                         $username,
+                                         $password);
+        if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == 200) {
+          list($headers, $content) = explode("\r\n\r\n", $response, 2);
 
-    if (count($releases)) {
-      foreach($releases as $release) {
-
-        // Gather version information
-        $versionName = $release->findElement(
-          WebDriverBy::xpath("h2")
-        );
-        $versionName = $versionName->getText();
-        $versionName = str_ireplace("drupal ", "", $versionName);
-
-        if ((!$minVersion || compareVersions($minVersion, $versionName) <= 0) && 
-            (!$maxVersion || compareVersions($versionName, $maxVersion) <= 0)) {
-
-          $majorVersion = substr($versionName, 0, strpos($versionName, '.')).".x";
-
-          if (strpos($versionName, ".x-dev")) {
-            $versionTimestamp = $now;
-          } else {
-            $versionTimestamp = $release->findElement(
-              WebDriverBy::xpath("div[@class='submitted']/time")
-            );
-            $versionTimestamp = intval($versionTimestamp->getAttribute('datetime'));
+          if ($tag->object->type == "tag") {
+            $tag = json_decode($content);
+            $response = makeGitHubApiRequest($ch,
+                                             $tag->object->url,
+                                             $username,
+                                             $password);
+            if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == 200) {
+              list($headers, $content) = explode("\r\n\r\n", $response, 2);
+            } else {
+              echo("Problem requesting version $versionName at $tag->object->url\n");
+              continue;
+            }
           }
 
-          echo("Adding version ".$versionName."\n");
-          $versions[$majorVersion][$versionName] = array(
+          $commit = json_decode($content);
+          $versionTimestamp = strtotime($commit->committer->date, $now);
+
+          echo("Adding version $versionName\n");
+          $version = array(
             'name'      => $versionName,
             'timestamp' => $versionTimestamp,
           );
-
+          if ($majorVersion) {
+            $versions[$majorVersion][$versionName] = $version;
+          } else {
+            $versions[$versionName] = $version;
+          }
+        } else {
+          echo("Problem requesting version $versionName at $tag->object->url\n");
         }
       }
+      
     }
+  }
 
-    $next_page_link = $containerDiv->findElements(
-        WebDriverBy::xpath("div/div[@class='item-list']/ul[@class='pager']/li[@class='pager-next']/a")
-    );
-    if (count($next_page_link)) {
-      $next_page_link[0]->click();
-    }
-
-  } while (count($next_page_link));
+  // close curl resource to free up system resources
+  curl_close($ch);
 
   return $versions;
 
@@ -206,7 +184,7 @@ function parseBug(array $version_info, array &$module_erros) {
 }
 
 // Parses a few arguments
-$options = getopt('h:', array('minVersion:', 'maxVersion:', 'help'));
+$options = getopt('h:', array('minVersion:', 'maxVersion:', 'githubUser:', 'githubPass', 'help'));
 
 validateArguments($options);
 
@@ -215,16 +193,9 @@ if (!ini_get('date.timezone')) {
   date_default_timezone_set('UTC');
 }
 
-// Main stript which uses php-webdriver.
-
-// start Firefox with 5 second timeout
-$host = 'http://localhost:4444/wd/hub'; // this is the default
-$capabilities = DesiredCapabilities::firefox();
-$driver = RemoteWebDriver::create($host, $capabilities, 10000);
-$wait = new WebDriverWait($driver);
-
 $now      = time();
-$versions = findVersions($options['minVersion'], $options['maxVersion']);
+$versions = findVersions($options['minVersion'], $options['maxVersion'],
+                         $options['githubUser'], $options['githubPass']);
 
 foreach ($versions as &$version) {
   uksort($version, "compareVersions");
@@ -233,6 +204,14 @@ ksort($versions);
 //echo var_export($versions, true);
 
 $versions_7x = $versions['7.x'];
+
+// Main stript which uses php-webdriver.
+
+// start Firefox with 5 second timeout
+$host = 'http://localhost:4444/wd/hub'; // this is the default
+$capabilities = DesiredCapabilities::firefox();
+$driver = RemoteWebDriver::create($host, $capabilities, 10000);
+$wait = new WebDriverWait($driver);
 
 // navigate to 'https://www.drupal.org/project/issues/search/drupal'
 $driver->get('https://www.drupal.org/project/issues/search/drupal');
