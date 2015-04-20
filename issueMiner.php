@@ -3,7 +3,6 @@
 
 require_once('utils.inc');
 require_once('modules.inc');
-require_once('vendor/facebook/webdriver/lib/__init__.php');
 
 /**
  * Finds all the stable versions between (inclusive), and return an associative
@@ -19,10 +18,10 @@ require_once('vendor/facebook/webdriver/lib/__init__.php');
  */
 function findVersions($minVersion = false, $maxVersion = false, $username = false, $password = '') {
 
+  global $ch;
   global $now;
   $versions = array();
 
-  $ch = curl_init();
   $response = makeGitHubApiRequest($ch,
                                    'https://api.github.com/repos/drupal/drupal/git/refs/tags',
                                    $username,
@@ -39,7 +38,7 @@ function findVersions($minVersion = false, $maxVersion = false, $username = fals
       if ((!$minVersion || compareVersions($minVersion, $versionName) <= 0) && 
           (!$maxVersion || compareVersions($versionName, $maxVersion) <= 0)) {
 
-        $majorVersion = substr($versionName, 0, strpos($versionName, '.')).".x";
+        $majorVersion = substr($versionName, 0, strpos($versionName, '.'));
 
         $response = makeGitHubApiRequest($ch,
                                          $tag->object->url,
@@ -57,7 +56,7 @@ function findVersions($minVersion = false, $maxVersion = false, $username = fals
             if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == 200) {
               list($headers, $content) = explode("\r\n\r\n", $response, 2);
             } else {
-              echo("Problem requesting version $versionName at $tag->object->url\n");
+              echo("Problem requesting version $versionName at ".$tag->object->url."\n");
               continue;
             }
           }
@@ -71,116 +70,194 @@ function findVersions($minVersion = false, $maxVersion = false, $username = fals
             'timestamp' => $versionTimestamp,
           );
           if ($majorVersion) {
-            $versions[$majorVersion][$versionName] = $version;
+            $versions[$majorVersion.".x"][$versionName] = $version;
           } else {
             $versions[$versionName] = $version;
           }
         } else {
-          echo("Problem requesting version $versionName at $tag->object->url\n");
+          echo("Problem requesting version $versionName at ".$tag->object->url."\n");
         }
       }
       
     }
   }
 
-  // close curl resource to free up system resources
-  curl_close($ch);
-
   return $versions;
 
 }
 
-function parseBug(array $version_info, array &$module_erros) {
-  
-  global $driver;
+function parseIssue(DOMDocument $issuePage, array $versions, array &$modulesErrors) {
+
   global $now;
-  global $wait;
 
-  $main_container_div = $wait->until(
-    WebDriverExpectedCondition::presenceOfElementLocated(
-      WebDriverBy::id(
-        "block-system-main"
-      )
-    )
-  );
+  $xpath = new DOMXpath($issuePage);
+  $mainContainerDiv = $issuePage->getElementById('block-system-main');
+  $metadataContainerDiv = $issuePage->getElementById('block-project-issue-issue-metadata');
 
-  $metadata_container_div = $wait->until(
-    WebDriverExpectedCondition::presenceOfElementLocated(
-      WebDriverBy::id(
-        "block-project-issue-issue-metadata"
-      )
-    )
+  $pubTimestamp = $xpath->query(
+    "div/div[@class='content']/div/div[@class='submitted']/time",
+    $mainContainerDiv
   );
+  $pubTimestamp = $pubTimestamp->item(0);
+  $pubTimestamp = intval($pubTimestamp->getAttribute('datetime'));
 
-  $pub_timestamp = $main_container_div->findElement(
-    WebDriverBy::xpath(
-      "div/div[@class='content']/div/div[@class='submitted']/time"
-    )
+  $status = $xpath->query(
+    "div/div[@class='content']/div[contains(@class,'field-name-field-issue-status')]/div/div",
+    $metadataContainerDiv
   );
-  $pub_timestamp = intval($pub_timestamp->getAttribute('datetime'));
+  $status = $status->item(0);
+  $status = $status->nodeValue;
 
-  $status = $metadata_container_div->findElement(
-    WebDriverBy::xpath(
-      "div/div[@class='content']/div[contains(@class,'field-name-field-issue-status')]/div/div"
-    )
+  $module = $xpath->query(
+    "div/div[@class='content']/div[contains(@class,'field-name-field-issue-component')]/div/div",
+    $metadataContainerDiv
   );
-  $status = $status->getText();
+  $module = $module->item(0);
+  $module = $module->nodeValue;
 
-  $module = $metadata_container_div->findElement(
-    WebDriverBy::xpath(
-      "div/div[@class='content']/div[contains(@class,'field-name-field-issue-component')]/div/div"
-    )
+  $priority = $xpath->query(
+    "div/div[@class='content']/div[contains(@class,'field-name-field-issue-priority')]/div[@class='field-items']/div",
+    $metadataContainerDiv
   );
-  $module = $module->getText();
-
-  $priority = $metadata_container_div->findElement(
-    WebDriverBy::xpath(
-      "div/div[@class='content']/div[contains(@class,'field-name-field-issue-priority')]/div[@class='field-items']/div"
-    )
-  );
-  $priority = $priority->getText();
+  $priority = $priority->item(0);
+  $priority = $priority->nodeValue;
 
   // Get the closure timestamp of the bug, if it is closed. Otherwise, simply
   // consider the closure timestamp as now, for simplifing comparisions later.
-  $closure_timestamp = $now;
+  $closureTimestamp = $now;
   if ((strpos($status, 'Closed') === 0) || (strpos($status, 'Fixed') === 0)) {
-    $comments = $main_container_div->findElements(
-      WebDriverBy::xpath(
-        "div/div[@class='content']/section/div[contains(@class,'comment') and ./div[@class='content']/div/div/div/table/tbody/tr/td[contains(normalize-space(text()), \"".$status."\")]]"
-      )
+    $comments = $xpath->query(
+      "div/div[@class='content']/section/div[contains(@class,'comment') and ./div[@class='content']/div/div/div/table/tbody/tr/td[contains(normalize-space(text()), \"".$status."\")]]",
+      $mainContainerDiv
     );
     foreach ($comments as $comment) {
-      //$transition_comment = $comment->findElements(
-      //  WebDriverBy::xpath(
-      //    "//div[@class='content']/div/div/div/table/tbody/tr/td[normalize-space(text())=\"&raquo; ".$status."\"]"
-      //  )
-      //);
-      //if (count($transition_comment)) {
-        $closure_timestamp = $comment->findElement(
-          WebDriverBy::xpath(
-            "div[@class='submitted']/time"
-          )
-        );
-        $closure_timestamp = strtotime($closure_timestamp->getAttribute('datetime'), $now);
-      //}
+      $closureTimestamp = $xpath->query(
+        "div[@class='submitted']/time",
+        $comment
+      );
+      $closureTimestamp = $closureTimestamp->item(0);
+      $closureTimestamp = strtotime($closureTimestamp->getAttribute('datetime'), $now);
     }
   }
-  
-  // Search for the versions which were released during the time the bug was open.
-  $affected_subVersion = array_filter(
-    $version_info,
-    function($subVersion) use ($pub_timestamp, $closure_timestamp) {
-      return ($pub_timestamp < $subVersion['timestamp'] && $subVersion['timestamp'] < $closure_timestamp);
-    }
+
+  // Estimate a set of versions in which this issue was present. For that, we
+  // get the maximum and the minimum versions (for each branch) ever attributed
+  // for this issue, and all the versions in between.
+  $initialVersions = array_fill_keys(array_keys($versions), false);
+  $finalVersions   = array_fill_keys(array_keys($versions), false);
+
+  $issueVersion = $xpath->query(
+    "div/div[@class='content']/div[contains(@class,'field-name-field-issue-version')]/div/div",
+    $metadataContainerDiv
   );
-  foreach($affected_subVersion as $version_name => $specific_subVersion) {
-    $module_erros[$version_name][$priority]++;
+  if ($issueVersion->length) {
+    $issueVersion = $issueVersion->item(0);
+    $issueVersion = $issueVersion->nodeValue;
+    if (isVersion($issueVersion)) {
+      $majorVersion = substr($issueVersion, 0, strpos($issueVersion, '.')).".x";
+
+      if (isset($initialVersions[$majorVersion])) {
+        $initialVersions[$majorVersion] = $issueVersion;
+      }
+      if (isset($finalVersions[$majorVersion])) {
+        $finalVersions[$majorVersion] = $issueVersion;
+      }
+    }
   }
-  
-  //echo("\t\tmodule: ".$module."\n");
-  //echo("\t\tstatus: ".$status."\n");
-  //echo("\t\tpriority: ".$priority."\n");
-  
+
+  $versionTransitions = $xpath->query(
+    "div/div[@class='content']/section/div[contains(@class,'comment')]/div[@class='content']/div/div/div/table/tbody/tr[./td[contains(normalize-space(text()), \"Version:\")]]",
+    $mainContainerDiv
+  );
+  foreach ($versionTransitions as $versionTransition) {
+    foreach ($versionTransition->childNodes as $versionNode) {
+      if ($versionNode->nodeValue && 
+          $versionNode->nodeType == XML_ELEMENT_NODE &&
+          ($versionNode->getAttribute('class') == 'nodechanges-old' ||
+           $versionNode->getAttribute('class') == 'nodechanges-new')
+      ) {
+
+        $version = str_replace('» ', '', $versionNode->nodeValue);
+        if (isVersion($version)) {
+          $majorVersion = substr($version, 0, strpos($version, '.')).".x";
+
+          // If we were asked to analise such branch
+          if (isset($initialVersions[$majorVersion])) {
+            $currentInitialVersion = $initialVersions[$majorVersion];
+
+            // If there is no initial version or the one found is
+            // lesser, update the initial version for that branch
+            if (!$currentInitialVersion || compareVersions($version, $currentInitialVersion) < 0) {
+              $initialVersions[$majorVersion] = $version;
+            }
+          }
+
+          // If we were asked to analise such branch
+          if (isset($finalVersions[$majorVersion])) {
+            $currentFinalVersion = $finalVersions[$majorVersion];
+
+            // If there is no final version or the one found is
+            // greater, update the final version for that branch
+            if (!$currentFinalVersion || compareVersions($version, $currentFinalVersion) > 0) {
+              $finalVersions[$majorVersion] = $version;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  foreach ($versions as $majorVersionName => $majorVersion) {
+
+    // An issue does not necessarely affect all branchs.
+    if ($initialVersions[$majorVersionName] &&
+        $finalVersions[$majorVersionName]
+    ) {
+      $initialVersion = &$initialVersions[$majorVersionName];
+      $finalVersion   = &$finalVersions[$majorVersionName];
+
+      // If any boundary version has ended as development (e.g. 7.x-dev),
+      // which is not a real version, try to replace it with a real version
+      // according to the issue publish time (for initial versions)
+      // and closure time (for final versions).
+      if (strpos($initialVersion, '.x-dev') !== false || 
+          strpos($finalVersion,   '.x-dev') !== false) {
+
+        // Search for the versions released during the time the issue was open.
+        $releasedVersions = array_filter(
+          $majorVersion,
+          function($version) use ($pubTimestamp, $closureTimestamp) {
+            return ($pubTimestamp <= $version['timestamp'] && $version['timestamp'] < $closureTimestamp);
+          }
+        );
+
+        if ($count = count($releasedVersions)) {
+          usort($releasedVersions, 'compareVersionsByTimestamp');
+          if (strpos($initialVersion, '.x-dev') !== false) {
+            $initialVersion = $releasedVersions[0]['name'];
+          }
+          if (strpos($finalVersion, '.x-dev') !== false) {
+            $finalVersion = $releasedVersions[$count-1]['name'];
+          }
+        }
+
+      }
+
+      // Search for the versions affected by this issue in this branch.
+      $affectedVersions = array_filter(
+        $majorVersion,
+        function($version) use ($initialVersion, $finalVersion) {
+          return (compareVersions($initialVersion, $version['name']) <= 0 && 
+                  compareVersions($version['name'], $finalVersion)   <= 0);
+        }
+      );
+
+      foreach($affectedVersions as $versionName => $version) {
+        $modulesErrors[$majorVersionName][$module][$versionName][$priority]++;
+      }
+    }
+  }
+
 }
 
 // Parses a few arguments
@@ -194,123 +271,151 @@ if (!ini_get('date.timezone')) {
 }
 
 $now      = time();
+$ch       = curl_init();
+
+//include('versions.inc');
 $versions = findVersions($options['minVersion'], $options['maxVersion'],
                          $options['githubUser'], $options['githubPass']);
 
-foreach ($versions as &$version) {
-  uksort($version, "compareVersions");
+if (!count($versions)) {
+  exit("Could not fetch any version from github api.\n");
 }
+
 ksort($versions);
-//echo var_export($versions, true);
-
-$versions_7x = $versions['7.x'];
-
-// Main stript which uses php-webdriver.
-
-// start Firefox with 5 second timeout
-$host = 'http://localhost:4444/wd/hub'; // this is the default
-$capabilities = DesiredCapabilities::firefox();
-$driver = RemoteWebDriver::create($host, $capabilities, 10000);
-$wait = new WebDriverWait($driver);
-
-// navigate to 'https://www.drupal.org/project/issues/search/drupal'
-$driver->get('https://www.drupal.org/project/issues/search/drupal');
-
-$header  = ';'.implode(';;;;', array_keys($versions_7x))."\n";
-$header .= ';'.implode(';', array_fill(0, count($versions_7x), 'Critical;Major;Normal;Minor'))."\n";
-print_string($header);
-
-foreach($modules as $module) {
-  
-  $module_errors = array_fill_keys(
-      array_keys($versions_7x),
-      array(
-          'Critical' => 0,
-          'Major'    => 0,
-          'Normal'   => 0,
-          'Minor'    => 0,
-      )
-  );
-  
-  // Select version.
-  $versionElement = $driver->findElement(
-      WebDriverBy::id('edit-version')
-  );
-  $versionSelect = new WebDriverSelect($versionElement);
-  $versionSelect->selectByValue('7.x');
-
-  // Select module.
-  $moduleElement = $driver->findElement(
-      WebDriverBy::id('edit-component')
-  );
-  $moduleSelect = new WebDriverSelect($moduleElement);
-  $moduleSelect->deselectAll();
-  $moduleSelect->selectByVisibleText($module);
-
-  // Select category.
-  $categoryElement = $driver->findElement(
-      WebDriverBy::id('edit-categories')
-  );
-  $categorySelect = new WebDriverSelect($categoryElement);
-  $categorySelect->selectByVisibleText("Bug report");
-
-  // Select all status except for duplicated bugs, non reproducible bugs and bugs working as designed.
-  $statusElement = $driver->findElement(
-    WebDriverBy::id('edit-status')
-  );
-  $statusSelect = new WebDriverSelect($statusElement);
-  $statusOptions = $statusSelect->getOptions();
-  foreach ($statusOptions as $statusOption) {
-    $statusSelect->selectByValue($statusOption->getAttribute('value'));
-  }
-  $statusSelect->deselectByVisibleText("Closed (duplicate)");
-  $statusSelect->deselectByVisibleText("Closed (works as designed)");
-  $statusSelect->deselectByVisibleText("Closed (cannot reproduce)");
-
-  // Submit the form
-  $submitElement = $driver->findElement(
-      WebDriverBy::id('edit-submit-project-issue-search-project-searchapi')
-  );
-  $submitElement->submit();
-  
-  do {
-    
-    $containerDiv = $wait->until(
-      WebDriverExpectedCondition::presenceOfElementLocated(
-        WebDriverBy::xpath(
-          "//div[@id='block-system-main']/div[@class='block-inner']/div[@class='content']/div[contains(@class,'view')]"
+$modulesErrors = array_fill_keys(array_keys($versions), null);
+foreach ($versions as $majorVersionName => $majorVersion) {
+  if (isVersion($majorVersionName)) {
+    uksort($majorVersion, "compareVersions");
+    $modulesErrors[$majorVersionName] = array_fill_keys(
+      array_keys($modules),
+      array_fill_keys(
+        array_keys($majorVersion),
+        array(
+            'Critical' => 0,
+            'Major'    => 0,
+            'Normal'   => 0,
+            'Minor'    => 0,
         )
       )
     );
-    
-    $bug_links = $containerDiv->findElements(
-        WebDriverBy::xpath("div[@class='view-content']/table[2]/tbody/tr/td[contains(@class,'views-field-title')]/a")
+  } else {
+    unset($modulesErrors[$majorVersionName]);
+  }
+}
+
+//echo var_export($versions, true);
+
+curl_setopt($ch, CURLOPT_URL, 'https://www.drupal.org/project/issues/search/drupal'); 
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_setopt($ch, CURLOPT_USERAGENT, "curl");
+
+$content = curl_exec($ch);
+
+$issuesPage = new DomDocument();
+
+@$issuesPage->loadHTML($content);
+
+// Search parameters
+$queryString = array();
+
+// Select module.
+if (isset($modules)) {
+  $componentsElement = $issuesPage->getElementById('edit-component');
+  foreach ($componentsElement->childNodes as $componentElement) {
+    $component = $componentElement->getAttribute('value');
+    if (in_array($component, $modules)) {
+     $queryString['component'][] = $component;
+    }
+  }
+}
+
+// Select category.
+$categoriesElement = $issuesPage->getElementById('edit-categories');
+foreach ($categoriesElement->childNodes as $categoryElement) {
+  $category = $categoryElement->nodeValue;
+  if ($category == 'Bug report') {
+   $queryString['categories'][] = $categoryElement->getAttribute('value');
+  }
+}
+
+// Select all statuses except for duplicated bugs, non reproducible bugs and bugs working as designed.
+$statusesElement = $issuesPage->getElementById('edit-status');
+foreach ($statusesElement->childNodes as $statusElement) {
+  $status = $statusElement->nodeValue;
+  if ($status != 'Closed (duplicate)' && 
+      $status != 'Closed (works as designed)' &&
+      $status != 'Closed (cannot reproduce)'
+  ) {
+   $queryString['status'][] = $statusElement->getAttribute('value');
+  }
+}
+
+$queryString['order'] = 'field_issue_component';
+$queryString['sort']  = 'asc';
+
+$queryString = http_build_str($queryString);
+
+curl_setopt($ch, CURLOPT_URL, 'https://www.drupal.org/project/issues/search/drupal?'.$queryString); 
+
+
+do {
+
+    $content = curl_exec($ch);
+
+    @$issuesPage->loadHTML($content);
+    $xpath = new DOMXpath($issuesPage);
+
+    $containerDiv = $xpath->query(
+      "//div[@id='block-system-main']/div[@class='block-inner']/div[@class='content']/div[contains(@class,'view')]"
     );
-    if (count($bug_links)) {
-      echo("Should process ".count($bug_links)." bugs from ".$module."\n");
-      foreach($bug_links as $bug_link) {
-        echo("\tParsing bug ".$bug_link->getAttribute('href')."\n");
-        if (($previous_handle = openInNewWindow($driver, $bug_link)) !== false) {
-          parseBug($versions_7x, $module_errors);
-          goToWindow($driver, $previous_handle);
+    $containerDiv = $containerDiv->item(0);
+
+    $issueLinks = $xpath->query(
+      "div[@class='view-content']/table/tbody/tr/td[contains(@class,'views-field-title')]/a",
+      $containerDiv
+    );
+
+    if ($issueLinks->length) {
+      echo("Should process ".$issueLinks->length." issues.\n");
+      foreach($issueLinks as $issueLink) {
+        $issueUrl = $issueLink->getAttribute('href');
+        if (strpos($issueUrl, 'http') === false) {
+          $issueUrl = 'https://www.drupal.org'.$issueUrl;
         }
+        curl_setopt($ch, CURLOPT_URL, $issueUrl);
+        $content = curl_exec($ch);
+         $issuePage = new DomDocument();
+        @$issuePage->loadHTML($content);
+        echo("\tParsing issue ".$issueUrl."\n");
+        parseIssue($issuePage, $versions, $modulesErrors);
       }
     }
 
-    $next_page_link = $containerDiv->findElements(
-        WebDriverBy::xpath("div[@class='item-list']/ul[@class='pager']/li[@class='pager-next']/a")
+    $nextPageLink = $xpath->query(
+      "div[@class='item-list']/ul[@class='pager']/li[@class='pager-next']/a",
+      $containerDiv
     );
-    if (count($next_page_link)) {
-      $next_page_link[0]->click();
+
+    if ($nextPageLink->length) {
+      $nextPageUrl = $nextPageLink->item(0)->getAttribute('href');
+      if (strpos($nextPageUrl, 'http') === false) {
+        $nextPageUrl = 'https://www.drupal.org'.$nextPageUrl;
+      }
+      curl_setopt($ch, CURLOPT_URL, $nextPageUrl);
     }
 
-  } while (count($next_page_link));
-  
-  // We print into the file a module each time so if an exception occurs 
-  // in the middle of the execution, the previous computation is stored.
-  print_results($module, $module_errors);
+} while ($nextPageLink->length);
 
+// close curl resource to free up system resources
+curl_close($ch);
+
+foreach ($versions as $majorVersionName => $majorVersion) {
+  $header  = ';'.implode(';;;;', array_keys($majorVersion))."\n";
+  $header .= ';'.implode(';', array_fill(0, count($majorVersion), 'Critical;Major;Normal;Minor'))."\n";
+  print_string($header);
+  foreach ($modulesErrors[$majorVersionName] as $module => $moduleErrors)
+  print_results($module, $moduleErrors);
+  print_string("\n");
 }
 
-// close the Firefox
-$driver->quit();

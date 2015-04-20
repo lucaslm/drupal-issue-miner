@@ -1,5 +1,38 @@
 <?php
 
+define("VALID_VERSION_REGEXP",
+       "/^\d((\.)?\d+)*(\.(0+-alpha(-)?\d+|0+-beta(-)?\d+|0+-rc(-)?\d+|(dev-)?x))?$/"
+);
+
+if (!function_exists('http_build_str')) :
+/**
+ * Build query string
+ * @link http://php.net/manual/en/function.http-build-str.php
+ * @param array $query associative array of query string parameters
+ * @param string $prefix top level prefix
+ * @param string $arg_separator argument separator to use (by default the INI setting arg_separator.output will be used, or "&" if neither is set
+ * @return string Returns the built query as string on success or FALSE on failure.
+ */
+function http_build_str(array $query, $prefix = '', $arg_separator = null) {
+  if (is_null($arg_separator)) $arg_separator = ini_get('arg_separator.output');
+  $out = array();
+  foreach ($query as $k => $v) {
+    $key = $prefix ? "{$prefix}%5B{$k}%5D" : $k;
+    if (is_array($v))
+      $out[] = call_user_func(__FUNCTION__, $v, $key, $arg_separator);
+    else
+      $out[] = $key . '=' . urlencode($v);
+    }
+    return implode($arg_separator, $out);
+}
+endif;
+
+function isVersion($version) {
+
+  return preg_match(VALID_VERSION_REGEXP, $version);
+
+}
+
 /**
  * Compares two versions
  */
@@ -7,7 +40,7 @@ function compareVersions($version1, $version2) {
 
   // Array to store the order of pre-regular-releases versions.
   $preReleases = array_flip(array(
-    "x-dev", "unstable", "alpha", "beta", "rc"
+    "x-dev", "start", "unstable", "alpha", "beta", "rc"
   ));
   // All values in preReleases must be negative so they come before regular releases.
   $count = count($preReleases);
@@ -42,6 +75,14 @@ function compareVersions($version1, $version2) {
   }
 
   return 0;
+}
+
+/**
+ * Compares two versions by timestamp
+ */
+function compareVersionsByTimestamp($version1, $version2) {
+  return ( $version1['timestamp'] == $version2['timestamp']) ?  0 :
+         (($version1['timestamp'] <  $version2['timestamp']) ? -1 : 1);
 }
 
 function parseCurlHeaders(&$headers) {
@@ -87,59 +128,6 @@ function makeGitHubApiRequest($cURLhandle, $url,
   return $response;
 }
 
-/**
- * Open a link in a new window, shiching the driver's handle
- *
- * @param WebDriver $driver The webDriver representing the current session.
- * @param mixed $link Either a string with the link to open or a WebDriverElement
- * representing the link itselft.
- * @return mixed The previous window handle as a string or false if $link was a
- * invalid type or a error ocorred.
- */
-function openInNewWindow(RemoteWebDriver $driver, $link) {
-  if ($link instanceof WebDriverElement && $link->getTagName() == 'a') {
-    $link = $link->getAttribute('href');
-  }
-  
-  if (is_string($link)) {
-    // A simple window.open can be prevented by pop-up blocking options.
-    // We must create an anchor in the current page and then click it.
-    $script = "var d=document,a=d.createElement('a');a.target='_blank';a.href='$link';a.innerHTML='.';a.id='openInNewWindow';d.body.appendChild(a); return a;";
-    $sScriptResult = $driver->executeScript($script, array());
-    if ($sScriptResult && isset($sScriptResult['ELEMENT'])) {
-      $anchor =
-        new RemoteWebElement(
-          new RemoteExecuteMethod($driver),
-          $sScriptResult['ELEMENT']
-        );
-      /*$anchor = $driver->findElement(
-        WebDriverBy::id(
-          "openInNewWindow"
-        )
-      );*/
-      $anchor->click();
-      
-      $script = "var a=arguments[0];a.parentNode.removeChild(a);";
-      $sScriptResult = $driver->executeScript($script, array($anchor));
-      
-      $previous_handle = $driver->getWindowHandle();
-      $handles         = $driver->getWindowHandles();
-      $current_handle  = $handles[count($handles)-1];
-      $driver->switchTo()->window($current_handle);
-      $driver->get($link);
-      
-      return $previous_handle;
-      
-    }
-  }
-  return false;
-}
-
-function goToWindow(WebDriver $driver, $previous_handle) {
-  $driver->close();
-  $driver->switchTo()->window($previous_handle);
-}
-
 function validateArguments(&$options) {
 
   if (isset($options['h']) || isset($options['help'])) {
@@ -156,10 +144,8 @@ function validateArguments(&$options) {
       exit;
   }
 
-  $validVersionRegexp = "/^\d((\.)?\d+)*(\.(0+-alpha(-)?\d+|0+-beta(-)?\d+|0+-rc(-)?\d+|x))?$/";
-
   if (isset($options['minVersion'])) {
-      if (!preg_match($validVersionRegexp, $options['minVersion'])) {
+      if (!isVersion($options['minVersion'])) {
         echo("Invalid version ".$options['minVersion']."\n");
         echo("\n");
         exit;
@@ -169,7 +155,7 @@ function validateArguments(&$options) {
   }
 
   if (isset($options['maxVersion'])) {
-      if (!preg_match($validVersionRegexp, $options['maxVersion'])) {
+      if (!isVersion($options['maxVersion'])) {
         echo("Invalid version ".$options['minVersion']."\n");
         echo("\n");
         exit;
@@ -222,7 +208,7 @@ function validateArguments(&$options) {
   }
 
   if (!isset($options['githubUser'])) {
-    $options['githubUser'] = false;
+    $options['githubUser'] = $options['githubPass'] = false;
   }
 
 }
