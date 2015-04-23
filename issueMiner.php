@@ -252,6 +252,8 @@ function parseIssue(DOMDocument $issuePage, array $versions, array &$modulesErro
         }
       );
 
+      echo("\t\tThis issue affects ".count($affectedVersions)." versions from branch $majorVersionName.\n");
+
       foreach($affectedVersions as $versionName => $version) {
         $modulesErrors[$majorVersionName][$module][$versionName][$priority]++;
       }
@@ -261,7 +263,7 @@ function parseIssue(DOMDocument $issuePage, array $versions, array &$modulesErro
 }
 
 // Parses a few arguments
-$options = getopt('h:', array('minVersion:', 'maxVersion:', 'githubUser:', 'githubPass', 'help'));
+$options = getopt('h', array('minVersion:', 'maxVersion:', 'githubUser:', 'githubPass', 'help'));
 
 validateArguments($options);
 
@@ -281,13 +283,13 @@ if (!count($versions)) {
   exit("Could not fetch any version from github api.\n");
 }
 
-ksort($versions);
+uksort($versions, "compareVersions");
 $modulesErrors = array_fill_keys(array_keys($versions), null);
-foreach ($versions as $majorVersionName => $majorVersion) {
+foreach ($versions as $majorVersionName => &$majorVersion) {
   if (isVersion($majorVersionName)) {
     uksort($majorVersion, "compareVersions");
     $modulesErrors[$majorVersionName] = array_fill_keys(
-      array_keys($modules),
+      $modules,
       array_fill_keys(
         array_keys($majorVersion),
         array(
@@ -303,7 +305,7 @@ foreach ($versions as $majorVersionName => $majorVersion) {
   }
 }
 
-//echo var_export($versions, true);
+//print_string("<?php\n\n\$versions = ".var_export($versions, true).";\n", 'versions.inc', 'w');
 
 curl_setopt($ch, CURLOPT_URL, 'https://www.drupal.org/project/issues/search/drupal'); 
 curl_setopt($ch, CURLOPT_HEADER, 0);

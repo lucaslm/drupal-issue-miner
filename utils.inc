@@ -247,8 +247,8 @@ function format_results($module, array $module_errors) {
   return $output;
 }
 
-function print_string($output, $filename = 'results.csv') {
-  if (!($file = fopen($filename, 'a'))) {
+function print_string($output, $filename = 'results.csv', $mode = 'a') {
+  if (!($file = fopen($filename, $mode))) {
     echo "Could not open ".$filename." for writing!\n";
     print_r($output);
   }
