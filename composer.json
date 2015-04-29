@@ -3,6 +3,7 @@
         "php": ">=5.1",
         "ext-curl": "*",
         "ext-dom": "*",
-        "ext-http": ">=0.23"
+        "ext-http": ">=0.23",
+        "ext-pcntl": "*"
     }
 }

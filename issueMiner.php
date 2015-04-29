@@ -252,7 +252,7 @@ function parseIssue(DOMDocument $issuePage, array $versions, array &$modulesErro
         }
       );
 
-      echo("\t\tThis issue affects ".count($affectedVersions)." versions from branch $majorVersionName.\n");
+      echo("\t\tThis issue affects ".count($affectedVersions)." version(s) from branch $majorVersionName.\n");
 
       foreach($affectedVersions as $versionName => $version) {
         $modulesErrors[$majorVersionName][$module][$versionName][$priority]++;
@@ -360,6 +360,8 @@ $queryString = http_build_str($queryString);
 
 curl_setopt($ch, CURLOPT_URL, 'https://www.drupal.org/project/issues/search/drupal?'.$queryString); 
 
+declare(ticks=100); // PHP internal, make signal handling work
+pcntl_signal(SIGINT, 'keyboardInterruptHandler');
 
 do {
 
@@ -412,12 +414,7 @@ do {
 // close curl resource to free up system resources
 curl_close($ch);
 
-foreach ($versions as $majorVersionName => $majorVersion) {
-  $header  = ';'.implode(';;;;', array_keys($majorVersion))."\n";
-  $header .= ';'.implode(';', array_fill(0, count($majorVersion), 'Critical;Major;Normal;Minor'))."\n";
-  print_string($header);
-  foreach ($modulesErrors[$majorVersionName] as $module => $moduleErrors)
-  print_results($module, $moduleErrors);
-  print_string("\n");
-}
+pcntl_signal(SIGINT, SIG_DFL);
+
+print_results($versions, $modulesErrors);
 

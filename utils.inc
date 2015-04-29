@@ -213,36 +213,36 @@ function validateArguments(&$options) {
 
 }
 
-/**
- * Append the computed amount of erros found for a module into a file.
- * @param string  $module
- * @param array   $module_errors
- * @param string  $filename
- */
-function print_results($module, array $module_errors, $filename = 'results.csv') {
-  $output = format_results($module, $module_errors);
-  
-  // Write the results.
-  print_string($output, $filename);
+function keyboardInterruptHandler($signo) {
+  global $versions, $modulesErrors;
+
+  echo("\nThe script was interrupted, would you like to save the results gathered so far?[y/n]\n");
+
+  pcntl_signal(SIGINT, SIG_DFL);
+
+  if (fgets(STDIN)[0] == 'y' || fgets(STDIN)[0] == 'Y') {
+    print_results($versions, $modulesErrors);
+  }
+  exit;
 }
 
 /**
  * Turn the errors results of a given module into a string for printing.
  * 
  * @param string $module
- * @param array $module_errors
+ * @param array  $moduleErrors
  * @return string
  */
-function format_results($module, array $module_errors) {
+function format_results($module, array $moduleErrors) {
   $output  = '';
   $output .= $module.";";
-  $module_errors = array_map(
+  $moduleErrors = array_map(
     function($module_priority_errors) {
       return implode(";", $module_priority_errors);
     },
-    $module_errors
+    $moduleErrors
   );
-  $output .= implode(";", $module_errors);
+  $output .= implode(";", $moduleErrors);
   $output .= "\n";
   return $output;
 }
@@ -261,3 +261,34 @@ function print_string($output, $filename = 'results.csv', $mode = 'a') {
   fclose($file);
 }
 
+/**
+ * Append the computed amount of erros found for a module into a file.
+ * @param string  $module
+ * @param array   $moduleErrors
+ * @param string  $filename
+ */
+function print_module_results($module, array $moduleErrors, $filename = 'results.csv') {
+  $output = format_results($module, $moduleErrors);
+  
+  // Write the results.
+  print_string($output, $filename);
+}
+
+/**
+ * @param array  $versions
+ * @param array  $moduleErrors
+ */
+function print_results(array $versions, array $modulesErrors) {
+  echo("Printing results...\n");
+  foreach ($versions as $majorVersionName => $majorVersion) {
+    $header  = ';'.implode(';;;;', array_keys($majorVersion))."\n";
+    $header .= ';'.implode(';', array_fill(0, count($majorVersion), 'Critical;Major;Normal;Minor'))."\n";
+    print_string($header);
+    if (isset($modulesErrors[$majorVersionName])) {
+      foreach ($modulesErrors[$majorVersionName] as $module => $moduleErrors) {
+        print_module_results($module, $moduleErrors);
+      }
+    }
+    print_string("\n");
+  }
+}
